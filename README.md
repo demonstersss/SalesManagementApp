@@ -4,6 +4,9 @@
 Технологии
 
 .NET 9 
+
 WPF 
+
 Entity Framework Core с SQLite
+
 Bogus 
