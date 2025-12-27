@@ -1,23 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
+using Shop;
 using Shop.Models;
+using System;
 using System.Collections.ObjectModel;
-using System.Text;
+using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
-namespace Shop
-{
+namespace VegetableShopApp
+{ 
     public partial class MainWindow : Window
     {
-        public AppDbContext _context;
+        private readonly AppDbContext _context;
         public ObservableCollection<Product> Products { get; set; }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -26,53 +22,77 @@ namespace Shop
             _context.Database.EnsureCreated();
             _context.SeedDataIfEmpty();
 
-            LoadProducts();
+            LoadAllProducts(); 
         }
-        private void LoadProducts()
+
+        private void LoadAllProducts()
         {
             Products = new ObservableCollection<Product>(_context.Products.ToList());
-            ProductsDataGrid.ItemsSource = Products; 
+            ProductsDataGrid.ItemsSource = Products;
         }
 
-        private void RefreshProducts()
+        private void RefreshProducts(string searchText = "")
         {
-            var sortedProducts = _context.Products
-                .OrderBy(p => p.Id)
-                .ToList();
+            var query = _context.Products.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                string trimmed = searchText.Trim();
+                query = query.Where(p => EF.Functions.Like(p.Name, $"%{trimmed}%"));
+            }
+
+            var filteredProducts = query.ToList();
 
             Products.Clear();
-            foreach (var product in sortedProducts)
+            foreach (var product in filteredProducts)
             {
                 Products.Add(product);
             }
         }
 
+
+        private void SearchButton_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshProducts(SearchTextBox.Text);
+        }
+
+        private void ResetSearch_Click(object sender, RoutedEventArgs e)
+        {
+            SearchTextBox.Text = string.Empty;
+            RefreshProducts();
+        }
+
+
         private void AddQuantity_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var productIdStr = Microsoft.VisualBasic.Interaction.InputBox("ID продукта:", "Добавить количество", "");
-                if (!int.TryParse(productIdStr, out int productId)) return;
+                string idInput = Interaction.InputBox("Введите ID продукта:", "Добавить количество", "");
+                if (!int.TryParse(idInput, out int productId)) return;
 
-                var quantityStr = Microsoft.VisualBasic.Interaction.InputBox("Количество для добавления:", "Добавить количество", "0");
-                if (!int.TryParse(quantityStr, out int quantityToAdd) || quantityToAdd <= 0) return;
+                string qtyInput = Interaction.InputBox("Введите количество для добавления:", "Добавить количество", "0");
+                if (!int.TryParse(qtyInput, out int quantityToAdd) || quantityToAdd <= 0)
+                {
+                    MessageBox.Show("Некорректное количество.");
+                    return;
+                }
 
                 var product = _context.Products.FirstOrDefault(p => p.Id == productId);
-                if (product != null)
+                if (product == null)
                 {
-                    product.Quantity += quantityToAdd;
-                    _context.SaveChanges();
-                    RefreshProducts(); 
-                    MessageBox.Show("Количество успешно обновлено.");
+                    MessageBox.Show("Продукт с таким ID не найден.");
+                    return;
                 }
-                else
-                {
-                    MessageBox.Show("Продукт не найден.");
-                }
+
+                product.Quantity += quantityToAdd;
+                _context.SaveChanges();
+
+                RefreshProducts(SearchTextBox.Text); 
+                MessageBox.Show($"Количество успешно увеличено. Теперь: {product.Quantity}");
             }
-            catch
+            catch (Exception ex)
             {
-                MessageBox.Show("Ошибка ввода данных.");
+                MessageBox.Show("Ошибка: " + ex.Message);
             }
         }
 
@@ -80,42 +100,54 @@ namespace Shop
         {
             try
             {
-                var productIdStr = Microsoft.VisualBasic.Interaction.InputBox("ID продукта:", "Продать", "");
-                if (!int.TryParse(productIdStr, out int productId)) return;
+                string idInput = Interaction.InputBox("Введите ID продукта:", "Продать", "");
+                if (!int.TryParse(idInput, out int productId)) return;
 
-                var quantityStr = Microsoft.VisualBasic.Interaction.InputBox("Количество для продажи:", "Продать", "0");
-                if (!int.TryParse(quantityStr, out int quantityToSell) || quantityToSell <= 0) return;
+                string qtyInput = Interaction.InputBox("Введите количество для продажи:", "Продать", "0");
+                if (!int.TryParse(qtyInput, out int quantityToSell) || quantityToSell <= 0)
+                {
+                    MessageBox.Show("Некорректное количество.");
+                    return;
+                }
 
-                var buyerName = Microsoft.VisualBasic.Interaction.InputBox("Имя покупателя:", "Продать", "");
+                string buyerName = Interaction.InputBox("Введите имя покупателя:", "Продать", "");
 
                 var product = _context.Products.FirstOrDefault(p => p.Id == productId);
-                if (product != null && product.Quantity >= quantityToSell)
+                if (product == null)
                 {
-                    product.Quantity -= quantityToSell;
-                    var amount = quantityToSell * product.Price;
-
-                    _context.SalesHistory.Add(new SaleHistory
-                    {
-                        BuyerName = buyerName,
-                        ProductId = productId,
-                        Quantity = quantityToSell,
-                        Amount = amount
-                    });
-
-                    _context.SaveChanges();
-                    RefreshProducts(); 
-                    MessageBox.Show("Продажа завершена.");
+                    MessageBox.Show("Продукт с таким ID не найден.");
+                    return;
                 }
-                else
+
+                if (product.Quantity < quantityToSell)
                 {
-                    MessageBox.Show("Недостаточно количества или продукт не найден.");
+                    MessageBox.Show($"Недостаточно товара. В наличии: {product.Quantity}");
+                    return;
                 }
+
+                product.Quantity -= quantityToSell;
+                decimal amount = quantityToSell * product.Price;
+
+                _context.SalesHistory.Add(new SaleHistory
+                {
+                    BuyerName = buyerName,
+                    ProductId = productId,
+                    Quantity = quantityToSell,
+                    Amount = amount
+                });
+
+                _context.SaveChanges();
+
+                RefreshProducts(SearchTextBox.Text);
+                MessageBox.Show($"Продажа завершена. Сумма: ${amount}");
             }
-            catch
+            catch (Exception ex)
             {
-                MessageBox.Show("Ошибка ввода данных.");
+                MessageBox.Show("Ошибка: " + ex.Message);
             }
         }
+
+
         private void OpenWeights_Click(object sender, RoutedEventArgs e)
         {
             new WeightsWindow(_context).Show();
