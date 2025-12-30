@@ -36,13 +36,39 @@ namespace Shop
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _entityType = entityType ?? throw new ArgumentNullException(nameof(entityType));
 
-            _dbSetName = entityType.Name + "s"; 
+            string[] possibleNames = new[]
+            {
+                entityType.Name + "s",           // ProductWeight -> ProductWeights
+                entityType.Name + "ies",         // Category -> Categories (если будет)
+                entityType.Name,                 // SaleHistory -> SaleHistory (если совпадает)
+                "SalesHistory"                   // Специально для SaleHistory
+            };
 
-            var dbSetProperty = typeof(AppDbContext).GetProperty(_dbSetName,
-                BindingFlags.Public | BindingFlags.Instance);
+            PropertyInfo dbSetProperty = null;
+
+            foreach (var name in possibleNames)
+            {
+                dbSetProperty = typeof(AppDbContext).GetProperty(name,
+                    BindingFlags.Public | BindingFlags.Instance);
+                if (dbSetProperty != null)
+                    break;
+            }
 
             if (dbSetProperty == null)
-                throw new ArgumentException($"DbSet с именем '{_dbSetName}' не найден в AppDbContext.");
+            {
+                // Дополнительная диагностика: покажем все доступные DbSet
+                var allDbSets = typeof(AppDbContext).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(p => p.PropertyType.IsGenericType &&
+                                p.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>))
+                    .Select(p => p.Name)
+                    .OrderBy(n => n)
+                    .ToArray();
+
+                throw new ArgumentException(
+                    $"DbSet для типа {_entityType.Name} не найден.\n" +
+                    $"Проверялись имена: {string.Join(", ", possibleNames)}\n" +
+                    $"Доступные DbSet в AppDbContext: {string.Join(", ", allDbSets)}");
+            }
 
             var dbSet = (IQueryable)dbSetProperty.GetValue(_context);
 
