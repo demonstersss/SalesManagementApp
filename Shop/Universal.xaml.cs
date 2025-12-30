@@ -38,10 +38,10 @@ namespace Shop
 
             string[] possibleNames = new[]
             {
-                entityType.Name + "s",           // ProductWeight -> ProductWeights
-                entityType.Name + "ies",         // Category -> Categories (если будет)
-                entityType.Name,                 // SaleHistory -> SaleHistory (если совпадает)
-                "SalesHistory"                   // Специально для SaleHistory
+                entityType.Name + "s",          
+                entityType.Name + "ies",         
+                entityType.Name,                 
+                "SalesHistory"                  
             };
 
             PropertyInfo dbSetProperty = null;
