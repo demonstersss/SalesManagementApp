@@ -65,107 +65,83 @@ namespace VegetableShopApp
 
         private void AddQuantity_Click(object sender, RoutedEventArgs e)
         {
-            try
+            var window = new AddQuantityWindow();
+            if (window.ShowDialog() == true)
             {
-                string idInput = Interaction.InputBox("Введите ID продукта:", "Добавить количество", "");
-                if (!int.TryParse(idInput, out int productId)) return;
-
-                string qtyInput = Interaction.InputBox("Введите количество для добавления:", "Добавить количество", "0");
-                if (!int.TryParse(qtyInput, out int quantityToAdd) || quantityToAdd <= 0)
-                {
-                    MessageBox.Show("Некорректное количество.");
-                    return;
-                }
-
-                var product = _context.Products.FirstOrDefault(p => p.Id == productId);
+                var product = _context.Products.FirstOrDefault(p => p.Id == window.ProductId);
                 if (product == null)
                 {
                     MessageBox.Show("Продукт с таким ID не найден.");
                     return;
                 }
 
-                product.Quantity += quantityToAdd;
+                product.Quantity += window.Quantity;
                 _context.SaveChanges();
 
-                RefreshProducts(SearchTextBox.Text); 
-                MessageBox.Show($"Количество успешно увеличено. Теперь: {product.Quantity}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка: " + ex.Message);
+                RefreshProducts(SearchTextBox.Text);
+                MessageBox.Show($"Количество успешно увеличено.");
             }
         }
 
         private void SellProduct_Click(object sender, RoutedEventArgs e)
         {
-            try
+            var window = new SellProductWindow();
+            if (window.ShowDialog() == true)
             {
-                string idInput = Interaction.InputBox("Введите ID продукта:", "Продать", "");
-                if (!int.TryParse(idInput, out int productId)) return;
-
-                string qtyInput = Interaction.InputBox("Введите количество для продажи:", "Продать", "0");
-                if (!int.TryParse(qtyInput, out int quantityToSell) || quantityToSell <= 0)
-                {
-                    MessageBox.Show("Некорректное количество.");
-                    return;
-                }
-
-                string buyerName = Interaction.InputBox("Введите имя покупателя:", "Продать", "");
-
-                var product = _context.Products.FirstOrDefault(p => p.Id == productId);
+                var product = _context.Products.FirstOrDefault(p => p.Id == window.ProductId);
                 if (product == null)
                 {
                     MessageBox.Show("Продукт с таким ID не найден.");
                     return;
                 }
 
-                if (product.Quantity < quantityToSell)
+                if (product.Quantity < window.Quantity)
                 {
                     MessageBox.Show($"Недостаточно товара. В наличии: {product.Quantity}");
                     return;
                 }
 
-                product.Quantity -= quantityToSell;
-                decimal amount = quantityToSell * product.Price;
+                product.Quantity -= window.Quantity;
+                decimal amount = window.Quantity * product.Price;
 
                 _context.SalesHistory.Add(new SaleHistory
                 {
-                    BuyerName = buyerName,
-                    ProductId = productId,
-                    Quantity = quantityToSell,
+                    BuyerName = window.BuyerName,
+                    ProductId = window.ProductId,
+                    Quantity = window.Quantity,
                     Amount = amount
                 });
 
                 _context.SaveChanges();
 
                 RefreshProducts(SearchTextBox.Text);
-                MessageBox.Show($"Продажа завершена. Сумма: ${amount}");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка: " + ex.Message);
+                MessageBox.Show($"Продажа завершена!");
             }
         }
 
 
         private void OpenWeights_Click(object sender, RoutedEventArgs e)
         {
-            new WeightsWindow(_context).Show();
+            var window = new Universal(_context, typeof(ProductWeight));
+            window.ShowDialog();
         }
 
         private void OpenCompositions_Click(object sender, RoutedEventArgs e)
         {
-            new CompositionsWindow(_context).Show();
+            var window = new Universal(_context, typeof(ProductComposition));
+            window.ShowDialog();
         }
 
         private void OpenStorage_Click(object sender, RoutedEventArgs e)
         {
-            new StorageWindow(_context).Show();
+            var window = new Universal(_context, typeof(ProductStorageCondition));
+            window.ShowDialog();
         }
 
         private void OpenSales_Click(object sender, RoutedEventArgs e)
         {
-            new SalesWindow(_context).Show();
+            var window = new Universal(_context, typeof(SaleHistory));
+            window.ShowDialog();
         }
     }
 }
